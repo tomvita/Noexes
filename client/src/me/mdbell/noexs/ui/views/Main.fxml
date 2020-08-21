@@ -1,23 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.net.URL?>
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.control.CheckBox?>
-<?import javafx.scene.control.ChoiceBox?>
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.control.ProgressBar?>
-<?import javafx.scene.control.Separator?>
-<?import javafx.scene.control.Tab?>
-<?import javafx.scene.control.TabPane?>
-<?import javafx.scene.control.TextField?>
-<?import javafx.scene.effect.ColorAdjust?>
-<?import javafx.scene.layout.AnchorPane?>
+<?import java.net.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.effect.*?>
+<?import javafx.scene.layout.*?>
 
-<AnchorPane fx:id="mainPane" maxHeight="570.0" maxWidth="1020.0" minHeight="570.0" minWidth="1020.0" prefHeight="570.0" prefWidth="1020.0" xmlns="http://javafx.com/javafx/8.0.121" xmlns:fx="http://javafx.com/fxml/1" fx:controller="me.mdbell.noexs.ui.controllers.MainController">
+<AnchorPane fx:id="mainPane" maxHeight="570.0" maxWidth="1020.0" minHeight="570.0" minWidth="1020.0" prefHeight="570.0" prefWidth="1020.0" xmlns="http://javafx.com/javafx/10.0.2-internal" xmlns:fx="http://javafx.com/fxml/1" fx:controller="me.mdbell.noexs.ui.controllers.MainController">
     <children>
         <AnchorPane layoutY="495.0" prefHeight="71.0" prefWidth="1020.0">
             <children>
                 <Button fx:id="connectBtn" layoutX="885.0" layoutY="39.0" mnemonicParsing="false" onAction="#connect" prefHeight="10.0" prefWidth="121.0" text="Connect" />
+                <Button fx:id="newConnectBtn" layoutX="829.0" layoutY="10.0" mnemonicParsing="false" onAction="#newConnect" prefHeight="25.0" prefWidth="74.0" text="Connect" />
+                <Button fx:id="newDisconnectBtn" layoutX="913.0" layoutY="10.0" mnemonicParsing="false" onAction="#newDisconnect" prefHeight="25.0" prefWidth="82.0" text="Disconnect" />
                 <TextField fx:id="ipAddr" layoutX="737.0" layoutY="39.0" prefHeight="25.0" prefWidth="142.0" text="111.111.111.111" />
                 <Label layoutX="737.0" layoutY="15.0" text="IP Address" />
                 <ProgressBar fx:id="progressBar" layoutX="11.0" layoutY="44.0" prefHeight="17.0" prefWidth="558.0" progress="0.0">
@@ -69,6 +63,11 @@
                 <Tab fx:id="utilsTab" text="Utils">
                     <content>
                         <fx:include fx:id="utilsTabPage" source="UtilsTab.fxml" />
+                    </content>
+                </Tab>
+                <Tab fx:id="utilsTab2" text="Utils2">
+                    <content>
+                        <fx:include fx:id="utilsTabPage2" source="UtilsTab.fxml" />
                     </content>
                 </Tab>
             </tabs>

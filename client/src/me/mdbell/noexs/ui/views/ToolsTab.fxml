@@ -1,15 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.control.ListView?>
-<?import javafx.scene.control.TableColumn?>
-<?import javafx.scene.control.TableView?>
-<?import javafx.scene.control.TextField?>
-<?import javafx.scene.control.TitledPane?>
-<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
 
-<AnchorPane fx:id="toolsTabPage" disable="true" minHeight="0.0" minWidth="0.0" prefHeight="470.0" prefWidth="1022.0" xmlns="http://javafx.com/javafx/8.0.121" xmlns:fx="http://javafx.com/fxml/1" fx:controller="me.mdbell.noexs.ui.controllers.ToolsController">
+<AnchorPane fx:id="toolsTabPage" disable="true" minHeight="0.0" minWidth="0.0" prefHeight="470.0" prefWidth="1022.0" xmlns="http://javafx.com/javafx/10.0.2-internal" xmlns:fx="http://javafx.com/fxml/1" fx:controller="me.mdbell.noexs.ui.controllers.ToolsController">
     <children>
         <TitledPane animated="false" collapsible="false" layoutX="487.0" layoutY="13.0" prefHeight="402.0" prefWidth="521.0" text="PID Selection">
             <content>
@@ -17,9 +11,9 @@
                     <children>
                         <ListView fx:id="pidList" editable="true" layoutX="14.0" layoutY="14.0" prefHeight="386.0" prefWidth="266.0" AnchorPane.bottomAnchor="5.0" AnchorPane.leftAnchor="5.0" AnchorPane.topAnchor="5.0" />
                         <Button layoutX="302.0" layoutY="25.0" mnemonicParsing="false" onAction="#setPidsList" prefHeight="25.0" prefWidth="210.0" text="Refresh Pids" />
-                        <Button layoutX="302.0" layoutY="55.0" mnemonicParsing="false" onAction="#attachProcess" prefHeight="25.0" prefWidth="210.0" text="Attach to Process" />
                         <Button layoutX="302.0" layoutY="88.0" mnemonicParsing="false" onAction="#detachProcess" prefHeight="25.0" prefWidth="210.0" text="Detach from Process" />
                   <Label fx:id="toolsTitleId" layoutX="302.0" layoutY="126.0" text="Title Id:" />
+                        <Button layoutX="302.0" layoutY="57.0" mnemonicParsing="false" onAction="#attachProcess" prefHeight="25.0" prefWidth="210.0" text="Attach to Process" />
                     </children>
                 </AnchorPane>
             </content>

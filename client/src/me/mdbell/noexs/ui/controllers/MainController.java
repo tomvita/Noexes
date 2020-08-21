@@ -351,6 +351,48 @@ public class MainController implements NetworkConstants, IController {
         fire(IController::onConnect);
     }
 
+    public void newConnect(ActionEvent event) {
+        connectionService.setOnSucceeded(value -> {
+            IConnection conn = (IConnection) value.getSource().getValue();
+            setConn(new Debugger(conn));
+        });
+        connectionService.setOnFailed(value -> {
+            if (connectionService.getCurrentFailureCount() < connectionService.getMaximumFailureCount() - 1) {
+                return;
+            }
+            setStatus("Unable to Connect!");
+            setConnectBtnText("Connect");
+            connectionType.setDisable(false);
+            ipAddr.setDisable(connectionType.getSelectionModel().getSelectedItem() != ConnectionType.NETWORK);
+        });
+
+        boolean disabled = true;
+        setConnectBtnText("Cancel");
+        connectionService.setType(connectionType.getSelectionModel().getSelectedItem());
+        connectionService.setHost(ipAddr.getText());
+        connectionService.setPort(DEFAULT_PORT);
+        connectionService.restart();
+
+        ipAddr.setDisable(disabled);
+        connectionType.setDisable(disabled);
+    }
+
+    public void newDisconnect(ActionEvent event) {
+        boolean disabled = false;
+        if (debugger != null && debugger.connected()) {
+            try {
+                debugger.close();
+                fire(IController::onDisconnect);
+                connectBtn.setDisable(false);
+            } catch (Exception ignored) {
+            }
+        } else {
+            System.out.println("Invalid state, cannot disconnect!");
+        }
+        ipAddr.setDisable(disabled);
+        connectionType.setDisable(disabled);
+    }
+
     public void connect(ActionEvent event) {
         connectionService.setOnSucceeded(value -> {
             IConnection conn = (IConnection) value.getSource().getValue();

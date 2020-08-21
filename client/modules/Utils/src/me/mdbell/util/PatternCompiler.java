@@ -1,6 +1,5 @@
 package me.mdbell.util;
 
-import jdk.internal.org.objectweb.asm.Type;
 import org.objectweb.asm.*;
 
 
@@ -81,7 +80,7 @@ public class PatternCompiler{
     private static ClassWriter createWriter(String name) {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
         MethodVisitor mv;
-        cw.visit(52, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, name, null, "java/lang/Object", new String[]{Type.getInternalName(IPatternMatcher.class)});
+        cw.visit(52, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, name, null, "java/lang/Object", new String[]{"UNKNOWN_INTERNAL_NAME"});
         mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
         mv.visitCode();
         mv.visitVarInsn(Opcodes.ALOAD, 0);

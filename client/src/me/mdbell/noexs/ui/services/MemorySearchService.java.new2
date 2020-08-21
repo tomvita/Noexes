@@ -40,6 +40,7 @@ public class MemorySearchService extends Service<SearchResult> {
     private long knownValue;
 
     private SearchResult prevResult;
+
     // NEW
     public long mainSearchStart;
     public long mainSearchEnd;
@@ -270,7 +271,10 @@ public class MemorySearchService extends Service<SearchResult> {
                 ByteBuffer b = res.curr.getBuffer(idx);
                 long addr = idx.getAddress();
                 if (addr < start) {
-                    b.position((int) (start - addr));
+                     b.position((int) (start - addr));
+//                    start = addr;
+                    // hack
+
                 }
                 search(res, b, addr, provider);
                 read += b.position();
@@ -397,6 +401,172 @@ public class MemorySearchService extends Service<SearchResult> {
             return isCancelled() ? null : dump;
         }
 
+        private void addAddress(long addr) {
+            if (addr < res.start) {
+                res.start = addr;
+            }
+            if (addr > res.end) {
+                res.end = addr;
+            }
+        }
+
+        MemoryDump createDump3(SearchResult res, DumpRegionSupplier supplier) throws IOException {
+
+            if (NoexesFiles.getTempDir().getFreeSpace() < supplier.getSize()) {
+                throw new IOException("Not enough free space for dump!");
+            }
+            boolean resume = conn.getStatus() == DebuggerStatus.PAUSED;
+
+            //pause the game
+            conn.pause();
+
+            long totalSize = supplier.getSize() + (mainSearchEnd-mainSearchStart);
+            long lastUpdate = 0;
+            long prevRead = 0;
+            DumpRegion r;
+            Rolling avg = new Rolling(10);
+            long read = 0;
+            MemoryDump dump;
+            DumpOutputStream dout;
+            try {
+                dump = new MemoryDump(res.getLocation());
+                dump.setTid(conn.getCurrentTitleId());
+                dump.getInfos().addAll(Arrays.asList(conn.query(0,10000)));
+                dout = dump.openStream();
+            } catch (IOException e) {
+                e.printStackTrace();
+                return null;
+            }
+            while (!isCancelled()) {
+                if ( mainSearchStart > 0 && mainSearchStart < supplier.getStart() ) {
+                    r = new DumpRegion(mainSearchStart, mainSearchEnd);
+                    mainSearchStart = 0;
+                }
+                else r = supplier.get();
+
+                System.out.println("CHANGE HERE: Main start is " + mainSearchStart + " end: " + mainSearchEnd);
+
+                if (r == null) {
+                    if (mainSearchStart > 0) {
+                        r = new DumpRegion(mainSearchStart, mainSearchEnd);
+                        mainSearchStart = 0;
+                    } else {
+                        break;
+                    }
+                }
+
+                long size = r.getSize();
+                long addr = r.getStart();
+                while (size > 0 && !isCancelled()) {
+                    if (System.currentTimeMillis() - lastUpdate > 500) {
+                        avg.add(read - prevRead);
+                        prevRead = read;
+                        lastUpdate = System.currentTimeMillis();
+                    }
+                    int len = (int) Math.min(size, 2_000_000);
+                    dout.setCurrentAddress(addr);
+                    conn.readmem(addr, len, dout);
+                    size -= len;
+                    addr += len;
+                    read += len;
+                    double average = avg.getAverage() * 2;
+                    long remaining = totalSize - read;
+                    updateProgress(read, totalSize);
+                    updateMessage(String.format("Dumping - DL: %s/s T: %s R: %s ETA: %s",
+                            NetUtils.formatSize((long) (average)),
+                            NetUtils.formatSize(totalSize),
+                            NetUtils.formatSize(remaining),
+                            TimeUtils.formatTime((long) (remaining / average * 1000))));
+
+                }
+            }
+            if (dout != null) {
+                dout.close();
+            }
+            if (resume) {
+                conn.resume();
+            }
+            return isCancelled() ? null : dump;
+        }
+
+        MemoryDump createDump2(SearchResult res, DumpRegionSupplier supplier) throws IOException {
+
+            if (NoexesFiles.getTempDir().getFreeSpace() < supplier.getSize()) {
+                throw new IOException("Not enough free space for dump!");
+            }
+            boolean resume = conn.getStatus() == DebuggerStatus.PAUSED;
+
+            //pause the game
+            conn.pause();
+
+            long totalSize = supplier.getSize() + (mainSearchEnd-mainSearchStart);
+            long lastUpdate = 0;
+            long prevRead = 0;
+            DumpRegion r;
+            Rolling avg = new Rolling(10);
+            long read = 0;
+            MemoryDump dump;
+            DumpOutputStream dout;
+            try {
+                dump = new MemoryDump(res.getLocation());
+                dump.setTid(conn.getCurrentTitleId());
+                dump.getInfos().addAll(Arrays.asList(conn.query(0,10000)));
+                dout = dump.openStream();
+            } catch (IOException e) {
+                e.printStackTrace();
+                return null;
+            }
+            while (!isCancelled()) {
+                if ( mainSearchStart > 0 && mainSearchStart < supplier.getStart() ) {
+                    r = new DumpRegion(mainSearchStart, mainSearchEnd);
+                    mainSearchStart = 0;
+                }
+                else r = supplier.get();
+
+                System.out.println("CHANGE HERE: Main start is " + mainSearchStart + " end: " + mainSearchEnd);
+
+                if (r == null) {
+                    if (mainSearchStart > 0) {
+                        r = new DumpRegion(mainSearchStart, mainSearchEnd);
+                        mainSearchStart = 0;
+                    } else {
+                        break;
+                    }
+                }
+
+                long size = r.getSize();
+                long addr = r.getStart();
+                while (size > 0 && !isCancelled()) {
+                    if (System.currentTimeMillis() - lastUpdate > 500) {
+                        avg.add(read - prevRead);
+                        prevRead = read;
+                        lastUpdate = System.currentTimeMillis();
+                    }
+                    int len = (int) Math.min(size, 2_000_000);
+                    dout.setCurrentAddress(addr);
+                    conn.readmem(addr, len, dout);
+                    size -= len;
+                    addr += len;
+                    read += len;
+                    double average = avg.getAverage() * 2;
+                    long remaining = totalSize - read;
+                    updateProgress(read, totalSize);
+                    updateMessage(String.format("Dumping - DL: %s/s T: %s R: %s ETA: %s",
+                            NetUtils.formatSize((long) (average)),
+                            NetUtils.formatSize(totalSize),
+                            NetUtils.formatSize(remaining),
+                            TimeUtils.formatTime((long) (remaining / average * 1000))));
+
+                }
+            }
+            if (dout != null) {
+                dout.close();
+            }
+            if (resume) {
+                conn.resume();
+            }
+            return isCancelled() ? null : dump;
+        }
         private void addAddress(long addr) {
             if (addr < res.start) {
                 res.start = addr;

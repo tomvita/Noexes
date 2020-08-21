@@ -14,12 +14,16 @@ public class MemoryInfoContextMenu extends ContextMenu {
         MenuItem searchBoth = new MenuItem("Search (Start & End)");
         MenuItem searchStart = new MenuItem("Search(Start)");
         MenuItem searchEnd = new MenuItem("Search (End)");
+        MenuItem mainsearchBoth = new MenuItem("Main Search (Start & End)");
+        MenuItem mainsearchStart = new MenuItem("Main Search(Start)");
+        MenuItem mainsearchEnd = new MenuItem("Main Search (End)");
         MenuItem ptrMain = new MenuItem("Pointer Search (Main)");
         MenuItem ptrFilter = new MenuItem("Pointer Search (Filter Min & Min)");
         MenuItem ptrFilterStart = new MenuItem("Pointer Search (Filter Min)");
         MenuItem ptrFilterEnd = new MenuItem("Pointer Search (Filter Max)");
         MenuItem memoryView = new MenuItem("Memory Viewer");
         MenuItem disassembler = new MenuItem("Disassembler");
+
         searchBoth.setOnAction(event -> {
             MemoryInfoTableModel model = memInfoTable.getSelectionModel().getSelectedItem();
             if (model == null) {
@@ -34,6 +38,28 @@ public class MemoryInfoContextMenu extends ContextMenu {
                 return;
             }
             mc.get().search().setStart(model.getAddr());
+        });
+
+        mainsearchBoth.setOnAction(event -> {
+            MemoryInfoTableModel model = memInfoTable.getSelectionModel().getSelectedItem();
+            if (model == null) {
+                return;
+            }
+            mc.get().search().mainsetSearchRange(model.getAddr(), model.getEnd());
+        });
+        mainsearchStart.setOnAction(event -> {
+            MemoryInfoTableModel model = memInfoTable.getSelectionModel().getSelectedItem();
+            if (model == null) {
+                return;
+            }
+            mc.get().search().mainsetStart(model.getAddr());
+        });
+        mainsearchEnd.setOnAction(event -> {
+            MemoryInfoTableModel model = memInfoTable.getSelectionModel().getSelectedItem();
+            if (model == null) {
+                return;
+            }
+            mc.get().search().mainsetEnd(model.getEnd());
         });
 
         ptrMain.setOnAction(event -> {
@@ -94,6 +120,6 @@ public class MemoryInfoContextMenu extends ContextMenu {
             mc.get().disassembly().setDisassembleAddress(model.getAddr());
             mc.get().setTab(MainController.Tab.DISASSEMBLER);
         });
-        getItems().addAll(searchBoth, searchStart, searchEnd, ptrMain, ptrFilter, ptrFilterStart, ptrFilterEnd, memoryView, disassembler);
+        getItems().addAll(searchBoth, searchStart, searchEnd, mainsearchBoth, mainsearchStart, mainsearchEnd, ptrMain, ptrFilter, ptrFilterStart, ptrFilterEnd, memoryView, disassembler);
     }
 }

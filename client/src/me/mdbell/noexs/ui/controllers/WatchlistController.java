@@ -133,12 +133,14 @@ public class WatchlistController implements IController {
         watchlistTable.getItems().remove(model);
         release();
     }
-
+//hack
     private void acquire() {
-        try {
-            semaphore.acquire();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+    if (true) {
+            try {
+                semaphore.acquire();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
