@@ -233,7 +233,7 @@ static Result _querymem_multi(Gecko::Context& ctx) {
 //0x0E
 static Result _current_pid(Gecko::Context& ctx){
     u64 pid;
-    Result rc = pmdmntGetApplicationPid(&pid);
+    Result rc = pmdmntGetApplicationProcessId(&pid);
     WRITE_CHECKED(ctx, pid);
     return rc;
 }
