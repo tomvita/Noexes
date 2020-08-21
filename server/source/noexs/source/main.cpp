@@ -1,6 +1,7 @@
 #include <switch.h>
 #include <string.h>
 #include "errors.h"
+#include <stdio.h>
 #include "gecko.h"
 
 extern "C" {
@@ -38,37 +39,37 @@ void __appInit(void) {
 	/* Initialize services */
 	rc = smInitialize();
 	if (R_FAILED(rc)) {
-		fatalSimple(MAKERESULT(Module_Libnx, LibnxError_InitFail_SM));
+		fatalThrow(MAKERESULT(Module_Libnx, LibnxError_InitFail_SM));
 	}
 
 	rc = ldrDmntInitialize();
 	if (R_FAILED(rc)) {
-		fatalSimple(MAKERESULT(Module_Libnx, LibnxError_AlreadyInitialized));
+		fatalThrow(MAKERESULT(Module_Libnx, LibnxError_AlreadyInitialized));
 	}
 
 	rc = pmdmntInitialize();
 	if (R_FAILED(rc)) {
-		fatalSimple(MAKERESULT(Module_Libnx, LibnxError_NotInitialized));
+		fatalThrow(MAKERESULT(Module_Libnx, LibnxError_NotInitialized));
 	}
 
 	rc = socketInitialize(socketGetDefaultInitConfig());
 	if (R_FAILED(rc)) {
-		fatalSimple(MAKERESULT(Module_TCPGecko, TCPGeckoError_initfail));
+		fatalThrow(MAKERESULT(Module_TCPGecko, TCPGeckoError_initfail));
 	}
 	
 	rc= pminfoInitialize();
 	if (R_FAILED(rc)) {
-		fatalSimple(rc);
+		fatalThrow(rc);
 	}
     
     rc = fsInitialize();
     if (R_FAILED(rc)) {
-        fatalSimple(MAKERESULT(Module_Libnx, LibnxError_InitFail_FS));
+        fatalThrow(MAKERESULT(Module_Libnx, LibnxError_InitFail_FS));
     }
     
     rc = fsdevMountSdmc();
     if (R_FAILED(rc)) {
-        fatalSimple(rc); // maybe set a variable like noSd or something? It doesn't HAVE to log.
+        fatalThrow(rc); // maybe set a variable like noSd or something? It doesn't HAVE to log.
     }
 }
 
