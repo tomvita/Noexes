@@ -319,11 +319,55 @@ static Result _set_breakpoint(Gecko::Context& ctx){
     return ctx.dbg.setBreakpoint(id, flags, addr);
 }
 
+//0x15
+static Result _freeze_address(Gecko::Context& ctx){
+    u32 id;
+    u64 addr;
+    u64 flags;
+    READ_CHECKED(ctx, id);
+    READ_CHECKED(ctx, addr);
+    READ_CHECKED(ctx, flags);
+    return ctx.dbg.setBreakpoint(id, flags, addr);
+}
+
+//0x16
+static Result _search_local(Gecko::Context& ctx){
+    u32 id;
+    u64 addr;
+    u64 flags;
+    READ_CHECKED(ctx, id);
+    READ_CHECKED(ctx, addr);
+    READ_CHECKED(ctx, flags);
+    return ctx.dbg.setBreakpoint(id, flags, addr);
+}
+
+//0x17
+static Result _fetch_result(Gecko::Context& ctx){
+    u32 id;
+    u64 addr;
+    u64 flags;
+    READ_CHECKED(ctx, id);
+    READ_CHECKED(ctx, addr);
+    READ_CHECKED(ctx, flags);
+    return ctx.dbg.setBreakpoint(id, flags, addr);
+}
+
+//0x18
+static Result _detach_dmnt(Gecko::Context& ctx){
+    u32 id;
+    u64 addr;
+    u64 flags;
+    READ_CHECKED(ctx, id);
+    READ_CHECKED(ctx, addr);
+    READ_CHECKED(ctx, flags);
+    return ctx.dbg.setBreakpoint(id, flags, addr);
+}
+
 Result cmd_decode(Gecko::Context& ctx, int cmd){
     static Result (*cmds[255])(Gecko::Context&) =   {NULL, _status, _poke8, _poke16, _poke32, _poke64, _readmem,
                                                     _writemem, _resume, _pause, _attach, _detatch, _querymem_single,
                                                     _querymem_multi, _current_pid, _attached_pid, _list_pids,
-                                                    _get_titleid, _disconnect, _readmem_multi, _set_breakpoint};
+                                                    _get_titleid, _disconnect, _readmem_multi, _set_breakpoint, _freeze_address, _search_local, _fetch_result, _detach_dmnt};
     Result rc = 0;
     if(cmds[cmd]){
         rc = cmds[cmd](ctx);
