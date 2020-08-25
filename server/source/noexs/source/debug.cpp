@@ -47,7 +47,8 @@ Result Gecko::Debugger::attach(u64 pid){
     rc = svcDebugActiveProcess(&handle, pid);
     if(R_SUCCEEDED(rc)){
         this->pid = pid;
-    }
+    } else 
+    {handle = 0; pid =0;}
     return rc;
 }
 
