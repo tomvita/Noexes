@@ -26,7 +26,7 @@
     if( i < 0)                                                      \
         return MAKERESULT(Module_TCPGecko, TCPGeckoError_iofail);   \
 }
-
+static bool dmnt = false;
 Result writeCompressed(Gecko::Context& ctx, u32 len) {
     static u8 tmp[GECKO_BUFFER_SIZE * 2];
     u32 pos = 0;
@@ -68,7 +68,8 @@ static Result _poke8(Gecko::Context& ctx){
     u8 val;
     READ_CHECKED(ctx, ptr);
     READ_CHECKED(ctx, val);
-    return ctx.dbg.writeMem(val, ptr);
+    if (dmnt) return dmntchtWriteCheatProcessMemory(ptr, &val, 1);
+    else return ctx.dbg.writeMem(val, ptr);
 }
 
 //0x03
@@ -77,7 +78,8 @@ static Result _poke16(Gecko::Context& ctx){
     u16 val;
     READ_CHECKED(ctx, ptr);
     READ_CHECKED(ctx, val);
-    return ctx.dbg.writeMem(val, ptr);
+    if (dmnt) return dmntchtWriteCheatProcessMemory(ptr, &val, 2);
+    else return ctx.dbg.writeMem(val, ptr);
 }
 
 //0x04
@@ -86,7 +88,8 @@ static Result _poke32(Gecko::Context& ctx){
     u32 val;
     READ_CHECKED(ctx, ptr);
     READ_CHECKED(ctx, val);
-    return ctx.dbg.writeMem(val, ptr);
+    if (dmnt) return dmntchtWriteCheatProcessMemory(ptr, &val, 4);
+    else return ctx.dbg.writeMem(val, ptr);
 }
 
 //0x05
@@ -95,7 +98,8 @@ static Result _poke64(Gecko::Context& ctx){
     u64 val;
     READ_CHECKED(ctx, ptr);
     READ_CHECKED(ctx, val);
-    return ctx.dbg.writeMem(val, ptr);
+    if (dmnt) return dmntchtWriteCheatProcessMemory(ptr, &val, 8);
+    else return ctx.dbg.writeMem(val, ptr);
 }
 
 //0x06
@@ -104,15 +108,18 @@ static Result _readmem(Gecko::Context& ctx){
 	u64 addr;
 	u32 size;
     u32 len;
+    bool* out = nullptr;
 
     READ_CHECKED(ctx, addr);				
     READ_CHECKED(ctx, size);
-    rc = ctx.dbg.attached();
+    if (dmnt) rc = dmntchtHasCheatProcess(out);
+    else rc = ctx.dbg.attached();
     WRITE_CHECKED(ctx, rc);
     if(R_SUCCEEDED(rc)){
         while(size > 0){
             len = size < GECKO_BUFFER_SIZE ? size : GECKO_BUFFER_SIZE;
-            rc = ctx.dbg.readMem(ctx.buffer, addr, len);
+            if (dmnt) rc = dmntchtReadCheatProcessMemory(addr, ctx.buffer, len);
+            else rc = ctx.dbg.readMem(ctx.buffer, addr, len);
             WRITE_CHECKED(ctx, rc);
         
             if(R_FAILED(rc)){
@@ -135,15 +142,18 @@ static Result _writemem(Gecko::Context& ctx){
     u32 size;
     u32 len;
     Result rc = 0;
+    bool * out = nullptr;
     READ_CHECKED(ctx, addr);
     READ_CHECKED(ctx, size);
-    rc = ctx.dbg.attached();
+    if (dmnt) rc = dmntchtHasCheatProcess(out);
+    else rc = ctx.dbg.attached();
     WRITE_CHECKED(ctx, rc);
     if(R_SUCCEEDED(rc)){
         while(size > 0){
             len = size < GECKO_BUFFER_SIZE ? size : GECKO_BUFFER_SIZE;
             READ_BUFFER_CHECKED(ctx, ctx.buffer, len);
-            ctx.dbg.writeMem(ctx.buffer, addr, len);
+            if (dmnt) rc = dmntchtWriteCheatProcessMemory(addr, ctx.buffer, len);
+            else ctx.dbg.writeMem(ctx.buffer, addr, len);
             addr += len;
             size -= len;
         }
@@ -153,7 +163,9 @@ static Result _writemem(Gecko::Context& ctx){
 
 //0x08
 static Result _resume(Gecko::Context& ctx){
-    Result rc = ctx.dbg.resume();
+    Result rc;
+    if (dmnt) rc = dmntchtResumeCheatProcess();
+    else rc = ctx.dbg.resume();
     if(R_SUCCEEDED(rc)){
         ctx.status = Gecko::Status::Running;
     }
@@ -162,7 +174,9 @@ static Result _resume(Gecko::Context& ctx){
 
 //0x09
 static Result _pause(Gecko::Context& ctx){
-    Result rc = ctx.dbg.pause();
+    Result rc;
+    if (dmnt) rc = dmntchtPauseCheatProcess();
+    else rc = ctx.dbg.pause();
     if(R_SUCCEEDED(rc)){
         ctx.status = Gecko::Status::Paused;
     }
@@ -175,6 +189,11 @@ static Result _attach(Gecko::Context& ctx){
     READ_CHECKED(ctx, pid);
     Result rc = ctx.dbg.attach(pid);
     if(R_SUCCEEDED(rc)){
+        ctx.status = Gecko::Status::Paused;
+    } else {
+        dmnt = true;
+        dmntchtInitialize();
+        rc = dmntchtPauseCheatProcess();
         ctx.status = Gecko::Status::Paused;
     }
     return rc;
@@ -197,7 +216,8 @@ static Result _querymem_single(Gecko::Context& ctx){
     
     READ_CHECKED(ctx, addr);
 
-    rc = ctx.dbg.query(&info, addr);
+    if (dmnt) rc = dmntchtQueryCheatProcessMemory(&info, addr);
+    else rc = ctx.dbg.query(&info, addr);
 
     WRITE_CHECKED(ctx, info.addr);
     WRITE_CHECKED(ctx, info.size);
@@ -217,7 +237,8 @@ static Result _querymem_multi(Gecko::Context& ctx) {
     READ_CHECKED(ctx, requestCount);
            
     for(count = 0; count < requestCount; count++){
-        rc =ctx.dbg.query(&info, addr);
+        if (dmnt) rc = dmntchtQueryCheatProcessMemory(&info, addr);
+        else rc =ctx.dbg.query(&info, addr);
         WRITE_CHECKED(ctx, info.addr);
         WRITE_CHECKED(ctx, info.size);
         WRITE_CHECKED(ctx, info.type);
@@ -286,9 +307,11 @@ static Result _readmem_multi(Gecko::Context& ctx){
     u32 data_size;
     u32 count = 0;
     u64 addr;
+    bool* out = nullptr;
     READ_CHECKED(ctx, size);
     READ_CHECKED(ctx, data_size);
-    rc = ctx.dbg.attached();
+    if (dmnt) rc = dmntchtHasCheatProcess(out);
+    else rc = ctx.dbg.attached();
     if(R_SUCCEEDED(rc)){
         if(data_size > GECKO_BUFFER_SIZE){
             rc = MAKERESULT(Module_TCPGecko, TCPGeckoError_buffer_too_small);
@@ -298,7 +321,8 @@ static Result _readmem_multi(Gecko::Context& ctx){
     if(R_SUCCEEDED(rc)){
         for(count = 0; count < size; count++){
             READ_CHECKED(ctx, addr);
-            rc = ctx.dbg.readMem(ctx.buffer, addr, data_size);
+            if (dmnt) rc = dmntchtReadCheatProcessMemory(addr, ctx.buffer, data_size);
+            else rc = ctx.dbg.readMem(ctx.buffer, addr, data_size);
             WRITE_CHECKED(ctx, rc);
             if(R_FAILED(rc)){
                 break;
