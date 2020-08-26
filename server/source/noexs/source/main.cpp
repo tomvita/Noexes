@@ -132,7 +132,8 @@ static Result _eventCallback(Gecko::DebugEvent event){
 
 int main(int argc, char **argv)
 {
-    //g_debugFile = fopen("Log.txt", "w");
+    g_debugFile = fopen("/switch/EdiZon/Log.txt", "w");
+    printf("testing\n");
     g_Context.dbg.addEventCallback(_eventCallback);
     
     while(appletMainLoop() && !g_Context.exit){

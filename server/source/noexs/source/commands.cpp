@@ -1,5 +1,6 @@
 #include "gecko.h"
 #include "errors.h"
+#include "dmntcht.h"
 
 //useful macros for reading/writeing to the socket
 #define READ_CHECKED(ctx, to) {                                     \
