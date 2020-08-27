@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "gecko.h"
 #include "errors.h"
 #include "dmntcht.h"
@@ -189,19 +190,34 @@ static Result _attach(Gecko::Context& ctx){
     READ_CHECKED(ctx, pid);
     Result rc = ctx.dbg.attach(pid);
     if(R_SUCCEEDED(rc)){
+        dmnt = false;
         ctx.status = Gecko::Status::Paused;
     } else {
-        dmnt = true;
-        dmntchtInitialize();
-        rc = dmntchtPauseCheatProcess();
-        ctx.status = Gecko::Status::Paused;
+        if (ctx.dbg.attached()) {    
+            dmntchtInitialize();
+            DmntCheatProcessMetadata cht;
+            dmntchtGetCheatProcessMetadata(&cht);
+            if (cht.process_id == pid) {
+                rc = dmntchtPauseCheatProcess();
+                if(R_SUCCEEDED(rc)){
+                    ctx.dbg.assign(pid);  
+                    dmnt = true;
+                    ctx.status = Gecko::Status::Paused;
+                }
+            } 
+            else {
+                dmntchtExit();
+            }
+        }
     }
     return rc;
 }
 
 //0x0B
 static Result _detatch(Gecko::Context& ctx){
-    Result rc = ctx.dbg.detatch();
+    Result rc;
+    if (dmnt) {rc = dmntchtResumeCheatProcess(); dmntchtExit(); dmnt = false; ctx.dbg.assign(0);} 
+    else rc = ctx.dbg.detatch();
     if(R_SUCCEEDED(rc)){
         ctx.status = Gecko::Status::Running;
     }
@@ -388,11 +404,80 @@ static Result _detach_dmnt(Gecko::Context& ctx){
     return ctx.dbg.setBreakpoint(id, flags, addr);
 }
 
+static u64 m_heap_start, m_heap_end, m_main_start, m_main_end;
+static Result getmeminfo(Gecko::Context& ctx) {
+    Result rc = 0;
+    u64 addr;
+    u32 requestCount;
+    u32 count = 0;
+    MemoryInfo info = {};
+    addr = 0;
+    requestCount = 10000;
+    m_heap_start = 0;
+    m_main_start = 0;
+    u32 mod = 0;
+    for(count = 0; count < requestCount; count++){
+        if (dmnt) rc = dmntchtQueryCheatProcessMemory(&info, addr);
+        else rc =ctx.dbg.query(&info, addr);
+        if (info.type == MemType_Heap){
+            if (m_heap_start == 0) m_heap_start = info.addr;
+            m_heap_end = info.addr + info.size;
+        }
+        if (info.type == MemType_CodeStatic){
+            if (mod == 1) m_main_start = info.addr;
+            mod += 1;
+        }
+        if (info.type == MemType_CodeMutable){
+            if (mod ==1 ) m_main_end = info.addr + info.size;
+        }
+        if(info.type == 0x10 || R_FAILED(rc)){
+            break;
+        }
+        addr += info.size;
+    }
+    return rc;
+}
+
+//0x19
+static Result _dump_ptr(Gecko::Context& ctx){
+    getmeminfo(ctx);
+    Result rc = 0;
+    u64 addr;
+    u32 requestCount;
+    u32 count = 0;
+    MemoryInfo info = {};
+    addr = 0;
+    requestCount = 10000;
+    m_heap_start = 0;
+    m_main_start = 0;
+    u32 mod = 0;
+    for(count = 0; count < requestCount; count++){
+        if (dmnt) rc = dmntchtQueryCheatProcessMemory(&info, addr);
+        else rc =ctx.dbg.query(&info, addr);
+        if (info.type == MemType_Heap){
+            if (m_heap_start == 0) m_heap_start = info.addr;
+            m_heap_end = info.addr + info.size;
+        }
+        if (info.type == MemType_CodeStatic){
+            if (mod == 1) m_main_start = info.addr;
+            mod += 1;
+        }
+        if (info.type == MemType_CodeMutable){
+            if (mod ==1 ) m_main_end = info.addr + info.size;
+        }
+        if(info.type == 0x10 || R_FAILED(rc)){
+            break;
+        }
+        addr += info.size;
+    }
+    return rc;
+}
+
 Result cmd_decode(Gecko::Context& ctx, int cmd){
     static Result (*cmds[255])(Gecko::Context&) =   {NULL, _status, _poke8, _poke16, _poke32, _poke64, _readmem,
                                                     _writemem, _resume, _pause, _attach, _detatch, _querymem_single,
                                                     _querymem_multi, _current_pid, _attached_pid, _list_pids,
-                                                    _get_titleid, _disconnect, _readmem_multi, _set_breakpoint, _freeze_address, _search_local, _fetch_result, _detach_dmnt};
+                                                    _get_titleid, _disconnect, _readmem_multi, _set_breakpoint, _freeze_address, _search_local, _fetch_result, _detach_dmnt, _dump_ptr};
     Result rc = 0;
     if(cmds[cmd]){
         rc = cmds[cmd](ctx);

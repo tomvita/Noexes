@@ -64,6 +64,7 @@ namespace Gecko{
         void addEventCallback(std::function<Result(Gecko::DebugEvent&)> callback);
         u64 attachedPid();
         Result attach(u64 pid);
+        Result assign(u64 pid);
         Result attached();
         Result detatch();
         

@@ -14,7 +14,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #define NX_SERVICE_ASSUME_NON_DOMAIN
-#include "../service_guard.h"
+#include "service_guard.h"
 #include "dmntcht.h"
 
 static Service g_dmntchtSrv;

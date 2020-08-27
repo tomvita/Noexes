@@ -51,6 +51,13 @@ Result Gecko::Debugger::attach(u64 pid){
     {handle = 0; pid =0;}
     return rc;
 }
+//fake attached and detatch 
+Result Gecko::Debugger::assign(u64 pid){ 
+    Result rc = 0;
+    handle = pid;
+    this->pid = pid;
+    return rc;
+}
 
 Result Gecko::Debugger::attached(){
     if(!handle){
