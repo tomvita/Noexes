@@ -405,6 +405,8 @@ static Result _detach_dmnt(Gecko::Context& ctx){
 }
 
 static u64 m_heap_start, m_heap_end, m_main_start, m_main_end;
+static u8 outbuffer[GECKO_BUFFER_SIZE];
+
 static Result getmeminfo(Gecko::Context& ctx) {
     Result rc = 0;
     u64 addr;
@@ -419,60 +421,89 @@ static Result getmeminfo(Gecko::Context& ctx) {
     for(count = 0; count < requestCount; count++){
         if (dmnt) rc = dmntchtQueryCheatProcessMemory(&info, addr);
         else rc =ctx.dbg.query(&info, addr);
+        // printf("info.addr %lx ,info.size %lx ,info.type %x\n",info.addr,info.size,info.type );
         if (info.type == MemType_Heap){
             if (m_heap_start == 0) m_heap_start = info.addr;
             m_heap_end = info.addr + info.size;
         }
-        if (info.type == MemType_CodeStatic){
+        if (info.type == MemType_CodeStatic && info.perm == Perm_Rx){
             if (mod == 1) m_main_start = info.addr;
             mod += 1;
         }
         if (info.type == MemType_CodeMutable){
-            if (mod ==1 ) m_main_end = info.addr + info.size;
+            if (mod ==2 ) m_main_end = info.addr + info.size;
         }
         if(info.type == 0x10 || R_FAILED(rc)){
             break;
         }
         addr += info.size;
+    }
+    return rc;
+}
+
+static Result process(Gecko::Context& ctx, u64 m_start, u64 m_end){
+    Result rc = 0;
+    u32 size, len;
+    u64 addr,from,to;
+    MemoryInfo info = {}; 
+    u32 out_index =0;
+    addr = m_start;
+    while (addr < m_end){
+        if (dmnt) rc = dmntchtQueryCheatProcessMemory(&info, addr);
+        else rc =ctx.dbg.query(&info, addr);
+        size = info.size;
+        while(size > 0){
+            len = size < GECKO_BUFFER_SIZE ? size : GECKO_BUFFER_SIZE;
+            if (dmnt) rc = dmntchtReadCheatProcessMemory(addr, ctx.buffer, len);
+            else rc = ctx.dbg.readMem(ctx.buffer, addr, len);
+            WRITE_CHECKED(ctx, rc);
+            if(R_FAILED(rc)){
+                break;
+            }
+            // screening
+            for (u32 i = 0; i< len;i+=4 )
+            {
+                to = *reinterpret_cast<u64 *>(&ctx.buffer[i]);
+                if (to >= m_heap_start && to <=m_heap_end) {
+                    from = addr + i;
+                    // Fill buffer 
+                    *reinterpret_cast<u64 *>(outbuffer[out_index])=from;
+                    *reinterpret_cast<u64 *>(outbuffer[out_index+8])=to;
+                    out_index +=16;
+                    if (out_index == GECKO_BUFFER_SIZE){
+                        WRITE_BUFFER_CHECKED(ctx, outbuffer, out_index);
+                        out_index = 0;
+                    }
+                }
+            }
+            if(R_FAILED(rc)){
+                break;
+            }
+            addr += len;
+            size -= len;
+        }
+        addr += info.size;
+    }
+    if (out_index!=0){
+        WRITE_BUFFER_CHECKED(ctx, outbuffer, out_index);
+        out_index = 0;
     }
     return rc;
 }
 
 //0x19
 static Result _dump_ptr(Gecko::Context& ctx){
-    getmeminfo(ctx);
-    Result rc = 0;
-    u64 addr;
-    u32 requestCount;
-    u32 count = 0;
-    MemoryInfo info = {};
-    addr = 0;
-    requestCount = 10000;
-    m_heap_start = 0;
-    m_main_start = 0;
-    u32 mod = 0;
-    for(count = 0; count < requestCount; count++){
-        if (dmnt) rc = dmntchtQueryCheatProcessMemory(&info, addr);
-        else rc =ctx.dbg.query(&info, addr);
-        if (info.type == MemType_Heap){
-            if (m_heap_start == 0) m_heap_start = info.addr;
-            m_heap_end = info.addr + info.size;
-        }
-        if (info.type == MemType_CodeStatic){
-            if (mod == 1) m_main_start = info.addr;
-            mod += 1;
-        }
-        if (info.type == MemType_CodeMutable){
-            if (mod ==1 ) m_main_end = info.addr + info.size;
-        }
-        if(info.type == 0x10 || R_FAILED(rc)){
-            break;
-        }
-        addr += info.size;
-    }
+    Result rc = getmeminfo(ctx);
+    printf("main start = %lx, main end = %lx, heap start = %lx, heap end = %lx \n",m_main_start,m_main_end,m_heap_start,m_heap_end );
+    WRITE_BUFFER_CHECKED(ctx, &m_main_start, 8);
+    WRITE_BUFFER_CHECKED(ctx, &m_main_end, 8);
+    WRITE_BUFFER_CHECKED(ctx, &m_heap_start, 8);
+    WRITE_BUFFER_CHECKED(ctx, &m_heap_end, 8);
+    return rc;
+    if (R_SUCCEEDED(rc)) rc = process(ctx, m_main_start, m_main_end); else return rc;
+    if (R_SUCCEEDED(rc)) rc = process(ctx, m_heap_start, m_heap_end);
     return rc;
 }
-
 Result cmd_decode(Gecko::Context& ctx, int cmd){
     static Result (*cmds[255])(Gecko::Context&) =   {NULL, _status, _poke8, _poke16, _poke32, _poke64, _readmem,
                                                     _writemem, _resume, _pause, _attach, _detatch, _querymem_single,
