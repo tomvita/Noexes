@@ -194,7 +194,7 @@ static Result _attach(Gecko::Context& ctx){
         ctx.status = Gecko::Status::Paused;
     } else {
         if (ctx.dbg.attached()) {    
-            dmntchtInitialize();
+            // dmntchtInitialize();
             DmntCheatProcessMetadata cht;
             dmntchtGetCheatProcessMetadata(&cht);
             if (cht.process_id == pid) {
@@ -206,7 +206,7 @@ static Result _attach(Gecko::Context& ctx){
                 }
             } 
             else {
-                dmntchtExit();
+                // dmntchtExit();
             }
         }
     }
@@ -216,7 +216,7 @@ static Result _attach(Gecko::Context& ctx){
 //0x0B
 static Result _detatch(Gecko::Context& ctx){
     Result rc;
-    if (dmnt) {rc = dmntchtResumeCheatProcess(); dmntchtExit(); dmnt = false; ctx.dbg.assign(0);} 
+    if (dmnt) {rc = dmntchtResumeCheatProcess();  dmnt = false; ctx.dbg.assign(0);} //dmntchtExit();
     else rc = ctx.dbg.detatch();
     if(R_SUCCEEDED(rc)){
         ctx.status = Gecko::Status::Running;
@@ -271,8 +271,16 @@ static Result _querymem_multi(Gecko::Context& ctx) {
 //0x0E
 static Result _current_pid(Gecko::Context& ctx){
     u64 pid;
-    Result rc = pmdmntGetApplicationProcessId(&pid);
+    bool dmnthascht;
+    Result rc;
+    dmntchtHasCheatProcess(&dmnthascht);
+    if (dmnthascht) {
+        DmntCheatProcessMetadata cht;
+        rc = dmntchtGetCheatProcessMetadata(&cht);
+        pid = cht.process_id;
+    } else rc = pmdmntGetApplicationProcessId(&pid);
     WRITE_CHECKED(ctx, pid);
+    // printf("pid = %lx\n",pid);
     return rc;
 }
 
@@ -362,13 +370,14 @@ static Result _set_breakpoint(Gecko::Context& ctx){
 
 //0x15
 static Result _freeze_address(Gecko::Context& ctx){
-    u32 id;
+    u64 out_value;
     u64 addr;
-    u64 flags;
-    READ_CHECKED(ctx, id);
+    u64 width;
     READ_CHECKED(ctx, addr);
-    READ_CHECKED(ctx, flags);
-    return ctx.dbg.setBreakpoint(id, flags, addr);
+    READ_CHECKED(ctx, width);
+    Result rc = dmntchtEnableFrozenAddress(addr,width,&out_value);
+    WRITE_CHECKED(ctx, out_value);
+    return rc;
 }
 
 //0x16
@@ -395,13 +404,12 @@ static Result _fetch_result(Gecko::Context& ctx){
 
 //0x18
 static Result _detach_dmnt(Gecko::Context& ctx){
-    u32 id;
-    u64 addr;
-    u64 flags;
-    READ_CHECKED(ctx, id);
-    READ_CHECKED(ctx, addr);
-    READ_CHECKED(ctx, flags);
-    return ctx.dbg.setBreakpoint(id, flags, addr);
+    return dmntchtForceCloseCheatProcess();
+}
+
+//0x19
+static Result _attach_dmnt(Gecko::Context& ctx){
+    return dmntchtForceOpenCheatProcess();
 }
 
 static u64 m_heap_start, m_heap_end, m_main_start, m_main_end;
@@ -441,7 +449,7 @@ static Result getmeminfo(Gecko::Context& ctx) {
     return rc;
 }
 
-static Result process(Gecko::Context& ctx, u64 m_start, u64 m_end){
+static Result process(Gecko::Context &ctx, u64 m_start, u64 m_end) {
     Result rc = 0;
     u32 size, len;
     u64 addr,from,to;
@@ -461,16 +469,15 @@ static Result process(Gecko::Context& ctx, u64 m_start, u64 m_end){
                 break;
             }
             // screening
-            for (u32 i = 0; i< len;i+=4 )
-            {
+            for (u32 i = 0; i < len; i += 4) {
                 to = *reinterpret_cast<u64 *>(&ctx.buffer[i]);
-                if (to >= m_heap_start && to <=m_heap_end) {
+                if (to >= m_heap_start && to <= m_heap_end) {
                     from = addr + i;
-                    // Fill buffer 
-                    *reinterpret_cast<u64 *>(outbuffer[out_index])=from;
-                    *reinterpret_cast<u64 *>(outbuffer[out_index+8])=to;
-                    out_index +=16;
-                    if (out_index == GECKO_BUFFER_SIZE){
+                    // Fill buffer
+                    *reinterpret_cast<u64 *>(outbuffer[out_index]) = from;
+                    *reinterpret_cast<u64 *>(outbuffer[out_index + 8]) = to;
+                    out_index += 16;
+                    if (out_index == GECKO_BUFFER_SIZE) {
                         WRITE_BUFFER_CHECKED(ctx, outbuffer, out_index);
                         out_index = 0;
                     }
@@ -484,14 +491,14 @@ static Result process(Gecko::Context& ctx, u64 m_start, u64 m_end){
         }
         addr += info.size;
     }
-    if (out_index!=0){
+    if (out_index != 0) {
         WRITE_BUFFER_CHECKED(ctx, outbuffer, out_index);
         out_index = 0;
     }
     return rc;
 }
 
-//0x19
+//0x1A
 static Result _dump_ptr(Gecko::Context& ctx){
     Result rc = getmeminfo(ctx);
     printf("main start = %lx, main end = %lx, heap start = %lx, heap end = %lx \n",m_main_start,m_main_end,m_heap_start,m_heap_end );
@@ -508,7 +515,8 @@ Result cmd_decode(Gecko::Context& ctx, int cmd){
     static Result (*cmds[255])(Gecko::Context&) =   {NULL, _status, _poke8, _poke16, _poke32, _poke64, _readmem,
                                                     _writemem, _resume, _pause, _attach, _detatch, _querymem_single,
                                                     _querymem_multi, _current_pid, _attached_pid, _list_pids,
-                                                    _get_titleid, _disconnect, _readmem_multi, _set_breakpoint, _freeze_address, _search_local, _fetch_result, _detach_dmnt, _dump_ptr};
+                                                    _get_titleid, _disconnect, _readmem_multi, _set_breakpoint, _freeze_address,
+                                                    _search_local, _fetch_result, _detach_dmnt, _attach_dmnt, _dump_ptr};
     Result rc = 0;
     if(cmds[cmd]){
         rc = cmds[cmd](ctx);

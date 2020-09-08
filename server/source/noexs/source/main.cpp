@@ -3,6 +3,7 @@
 #include "errors.h"
 #include <stdio.h>
 #include "gecko.h"
+#include "dmntcht.h"
 
 extern "C" {
 	extern u32 __start__;
@@ -71,6 +72,11 @@ void __appInit(void) {
     if (R_FAILED(rc)) {
         fatalThrow(rc); // maybe set a variable like noSd or something? It doesn't HAVE to log.
     }
+
+    rc = dmntchtInitialize();
+    if (R_FAILED(rc)) {
+        fatalThrow(rc); // maybe set a variable like noSd or something? It doesn't HAVE to log.
+    }
 }
 
 void __appExit(void) {
@@ -81,6 +87,7 @@ void __appExit(void) {
     socketExit();
     pmdmntExit();
     ldrDmntExit();
+    dmntchtExit();
 	smExit();
 }
 
@@ -134,7 +141,7 @@ int main(int argc, char **argv)
 {
     g_debugFile = fopen("/atmosphere/contents/054e4f4558454000/Log.txt", "w");
     g_Context.dbg.addEventCallback(_eventCallback);
-    
+
     while(appletMainLoop() && !g_Context.exit){
         g_Context.reset();
         if(g_Context.conn.connect()){
