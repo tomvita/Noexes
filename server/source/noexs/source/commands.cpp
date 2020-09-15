@@ -407,7 +407,7 @@ static Result _detach_dmnt(Gecko::Context& ctx){
     return dmntchtForceCloseCheatProcess();
 }
 
-//0x19
+//0x1A
 static Result _attach_dmnt(Gecko::Context& ctx){
     return dmntchtForceOpenCheatProcess();
 }
@@ -498,7 +498,7 @@ static Result process(Gecko::Context &ctx, u64 m_start, u64 m_end) {
     return rc;
 }
 
-//0x1A
+//0x19
 static Result _dump_ptr(Gecko::Context& ctx){
     Result rc = getmeminfo(ctx);
     printf("main start = %lx, main end = %lx, heap start = %lx, heap end = %lx \n",m_main_start,m_main_end,m_heap_start,m_heap_end );
@@ -512,11 +512,11 @@ static Result _dump_ptr(Gecko::Context& ctx){
     return rc;
 }
 Result cmd_decode(Gecko::Context& ctx, int cmd){
-    static Result (*cmds[255])(Gecko::Context&) =   {NULL, _status, _poke8, _poke16, _poke32, _poke64, _readmem,
+    static Result (*cmds[263])(Gecko::Context &) = {NULL, _status, _poke8, _poke16, _poke32, _poke64, _readmem,
                                                     _writemem, _resume, _pause, _attach, _detatch, _querymem_single,
                                                     _querymem_multi, _current_pid, _attached_pid, _list_pids,
                                                     _get_titleid, _disconnect, _readmem_multi, _set_breakpoint, _freeze_address,
-                                                    _search_local, _fetch_result, _detach_dmnt, _attach_dmnt, _dump_ptr};
+                                                    _search_local, _fetch_result, _detach_dmnt, _dump_ptr, _attach_dmnt};
     Result rc = 0;
     if(cmds[cmd]){
         rc = cmds[cmd](ctx);
