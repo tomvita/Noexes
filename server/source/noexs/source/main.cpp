@@ -139,7 +139,7 @@ static Result _eventCallback(Gecko::DebugEvent event){
 
 int main(int argc, char **argv)
 {
-    g_debugFile = fopen("/atmosphere/contents/054e4f4558454000/Log.txt", "w");
+    g_debugFile = fopen("/atmosphere/contents/054e4f4558454000/Log.txt", "w");//w or a
     g_Context.dbg.addEventCallback(_eventCallback);
 
     while(appletMainLoop() && !g_Context.exit){

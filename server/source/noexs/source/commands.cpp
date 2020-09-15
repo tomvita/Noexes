@@ -2,6 +2,7 @@
 #include "gecko.h"
 #include "errors.h"
 #include "dmntcht.h"
+#include "lz.h"
 
 //useful macros for reading/writeing to the socket
 #define READ_CHECKED(ctx, to) {                                     \
@@ -29,7 +30,7 @@
 }
 static bool dmnt = false;
 Result writeCompressed(Gecko::Context& ctx, u32 len) {
-    static u8 tmp[GECKO_BUFFER_SIZE * 2];
+    static u8 tmp[GECKO_BUFFER_SIZE2 * 2];
     u32 pos = 0;
 
     for(u32 i = 0; i < len;i++){
@@ -118,7 +119,7 @@ static Result _readmem(Gecko::Context& ctx){
     WRITE_CHECKED(ctx, rc);
     if(R_SUCCEEDED(rc)){
         while(size > 0){
-            len = size < GECKO_BUFFER_SIZE ? size : GECKO_BUFFER_SIZE;
+            len = size < GECKO_BUFFER_SIZE2 ? size : GECKO_BUFFER_SIZE2;
             if (dmnt) rc = dmntchtReadCheatProcessMemory(addr, ctx.buffer, len);
             else rc = ctx.dbg.readMem(ctx.buffer, addr, len);
             WRITE_CHECKED(ctx, rc);
@@ -413,7 +414,8 @@ static Result _attach_dmnt(Gecko::Context& ctx){
 }
 
 static u64 m_heap_start, m_heap_end, m_main_start, m_main_end;
-static u8 outbuffer[GECKO_BUFFER_SIZE];
+static u8 outbuffer[GECKO_BUFFER_SIZE * 9 / 8];
+#define outbuffer_offset GECKO_BUFFER_SIZE / 8
 
 static Result getmeminfo(Gecko::Context& ctx) {
     Result rc = 0;
@@ -456,45 +458,67 @@ static Result process(Gecko::Context &ctx, u64 m_start, u64 m_end) {
     MemoryInfo info = {}; 
     u32 out_index =0;
     addr = m_start;
+    printf("processing m_start = %lx m_end =  %lx \n", m_start, m_end);
     while (addr < m_end){
         if (dmnt) rc = dmntchtQueryCheatProcessMemory(&info, addr);
         else rc =ctx.dbg.query(&info, addr);
         size = info.size;
-        while(size > 0){
-            len = size < GECKO_BUFFER_SIZE ? size : GECKO_BUFFER_SIZE;
-            if (dmnt) rc = dmntchtReadCheatProcessMemory(addr, ctx.buffer, len);
-            else rc = ctx.dbg.readMem(ctx.buffer, addr, len);
-            WRITE_CHECKED(ctx, rc);
-            if(R_FAILED(rc)){
-                break;
-            }
-            // screening
-            for (u32 i = 0; i < len; i += 4) {
-                to = *reinterpret_cast<u64 *>(&ctx.buffer[i]);
-                if (to >= m_heap_start && to <= m_heap_end) {
-                    from = addr + i;
-                    // Fill buffer
-                    *reinterpret_cast<u64 *>(outbuffer[out_index]) = from;
-                    *reinterpret_cast<u64 *>(outbuffer[out_index + 8]) = to;
-                    out_index += 16;
-                    if (out_index == GECKO_BUFFER_SIZE) {
-                        WRITE_BUFFER_CHECKED(ctx, outbuffer, out_index);
-                        out_index = 0;
+        if (info.perm == Perm_Rw) {
+            // printf("addr = %lx size = %x \n", addr, size);
+            while (size > 0) {
+                len = (size < GECKO_BUFFER_SIZE) ? size : GECKO_BUFFER_SIZE;
+                // printf("size = %x len = %x\n", size, len);
+                if (dmnt)
+                    rc = dmntchtReadCheatProcessMemory(addr, ctx.buffer, len);
+                else
+                    rc = ctx.dbg.readMem(ctx.buffer, addr, len);
+                // WRITE_CHECKED(ctx, rc);
+                if (R_FAILED(rc)) {
+                    printf("break1 rc= %x \n", (int)rc);
+                    break;
+                }
+                // screening
+                for (u32 i = 0; i < len-4; i += 4) {
+                    to = *reinterpret_cast<u64 *>(&ctx.buffer[i]);
+                    if (to >= m_heap_start && to <= m_heap_end) {
+                        from = addr + i;
+                        // Fill buffer
+                        *reinterpret_cast<u64 *>(&outbuffer[outbuffer_offset + out_index]) = from;
+                        *reinterpret_cast<u64 *>(&outbuffer[outbuffer_offset + out_index + 8]) = to;
+                        out_index += 16;
+                        if (out_index == GECKO_BUFFER_SIZE) {
+                            // printf("ready to write\n");
+                            s32 count = out_index;
+                            // compress option
+                            count = LZ_Compress(outbuffer + outbuffer_offset, outbuffer, out_index);
+                            //
+                            WRITE_CHECKED(ctx, count);
+                            WRITE_BUFFER_CHECKED(ctx, outbuffer, count);
+                            out_index = 0;
+                        }
                     }
                 }
+                if (R_FAILED(rc)) {
+                    printf("break2 rc= %x \n", (int)rc);
+                    break;
+                }
+                addr += len;
+                size -= len;
             }
-            if(R_FAILED(rc)){
-                break;
-            }
-            addr += len;
-            size -= len;
-        }
-        addr += info.size;
+        } else
+            addr += info.size;
+        // printf("addr = %lx \n", addr);
     }
     if (out_index != 0) {
-        WRITE_BUFFER_CHECKED(ctx, outbuffer, out_index);
+        s32 count = out_index;
+        // compress option
+        count = LZ_Compress(outbuffer + outbuffer_offset, outbuffer, out_index);
+        //
+        WRITE_CHECKED(ctx, count);
+        WRITE_BUFFER_CHECKED(ctx, outbuffer, count);
         out_index = 0;
     }
+    WRITE_CHECKED(ctx, 0);
     return rc;
 }
 
@@ -506,8 +530,8 @@ static Result _dump_ptr(Gecko::Context& ctx){
     WRITE_BUFFER_CHECKED(ctx, &m_main_end, 8);
     WRITE_BUFFER_CHECKED(ctx, &m_heap_start, 8);
     WRITE_BUFFER_CHECKED(ctx, &m_heap_end, 8);
-    return rc;
     if (R_SUCCEEDED(rc)) rc = process(ctx, m_main_start, m_main_end); else return rc;
+    // return rc;
     if (R_SUCCEEDED(rc)) rc = process(ctx, m_heap_start, m_heap_end);
     return rc;
 }
