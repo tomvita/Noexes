@@ -74,9 +74,9 @@ void __appInit(void) {
     }
 
     rc = dmntchtInitialize();
-    if (R_FAILED(rc)) {
-        fatalThrow(rc); // maybe set a variable like noSd or something? It doesn't HAVE to log.
-    }
+    // if (R_FAILED(rc)) {
+    //     fatalThrow(rc); // maybe set a variable like noSd or something? It doesn't HAVE to log.
+    // }
 }
 
 void __appExit(void) {

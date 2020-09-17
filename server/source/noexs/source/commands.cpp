@@ -194,6 +194,7 @@ static Result _attach(Gecko::Context& ctx){
         dmnt = false;
         ctx.status = Gecko::Status::Paused;
     } else {
+        // return rc;
         if (ctx.dbg.attached()) {    
             // dmntchtInitialize();
             DmntCheatProcessMetadata cht;
