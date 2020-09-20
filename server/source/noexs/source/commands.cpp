@@ -28,6 +28,7 @@
     if( i < 0)                                                      \
         return MAKERESULT(Module_TCPGecko, TCPGeckoError_iofail);   \
 }
+#define USER_ABORT MAKERESULT(Module_TCPGecko, TCPGeckoError_user_abort)
 static bool dmnt = false;
 Result writeCompressed(Gecko::Context& ctx, u32 len) {
     static u8 tmp[GECKO_BUFFER_SIZE2 * 2];
@@ -458,6 +459,7 @@ static Result process(Gecko::Context &ctx, u64 m_start, u64 m_end) {
     MemoryInfo info = {}; 
     u32 out_index =0;
     addr = m_start;
+    u8 cont = 1;
     printf("processing m_start = %lx m_end =  %lx \n", m_start, m_end);
     while (addr < m_end){
         if (dmnt) rc = dmntchtQueryCheatProcessMemory(&info, addr);
@@ -494,6 +496,7 @@ static Result process(Gecko::Context &ctx, u64 m_start, u64 m_end) {
                             //
                             WRITE_CHECKED(ctx, count);
                             WRITE_BUFFER_CHECKED(ctx, outbuffer, count);
+                            READ_CHECKED(ctx,cont); if (!cont) {WRITE_CHECKED(ctx, 0); return USER_ABORT;}
                             out_index = 0;
                         }
                     }
