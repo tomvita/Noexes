@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <unistd.h>
 #include "gecko.h"
 #include "errors.h"
 #include "dmntcht.h"
@@ -29,6 +30,7 @@
         return MAKERESULT(Module_TCPGecko, TCPGeckoError_iofail);   \
 }
 #define USER_ABORT MAKERESULT(Module_TCPGecko, TCPGeckoError_user_abort)
+#define FILE_ACCESS_ERROR MAKERESULT(Module_TCPGecko, TCPGeckoError_file_access_error)
 static bool dmnt = false;
 Result writeCompressed(Gecko::Context& ctx, u32 len) {
     static u8 tmp[GECKO_BUFFER_SIZE2 * 2];
@@ -538,12 +540,60 @@ static Result _dump_ptr(Gecko::Context& ctx){
     if (R_SUCCEEDED(rc)) rc = process(ctx, m_heap_start, m_heap_end);
     return rc;
 }
+static FILE* g_memdumpFile = NULL;
+// static FILE* g_bookmarkFile = NULL;
+#define HEADERSIZE 134
+//0x1B
+static Result _getbookmark(Gecko::Context& ctx){
+    // printf("_getbookmark\n");
+    if (access("/switch/EdiZon/memdumpbookmark.dat", F_OK) != 0) {
+        s32 count = 0;
+        WRITE_CHECKED(ctx, count);
+        return FILE_ACCESS_ERROR;
+    }
+    g_memdumpFile = fopen("/switch/EdiZon/memdumpbookmark.dat", "r+b");
+    u32 size, len, index;
+    u8 cont = 1;
+
+    fseek(g_memdumpFile, 0, SEEK_END);
+    size = (ftell(g_memdumpFile) - HEADERSIZE);
+    printf("size = %d\n",size);
+
+    index = 0;
+    while (size > 0) {
+        len = (size < GECKO_BUFFER_SIZE) ? size : GECKO_BUFFER_SIZE;
+        fseek(g_memdumpFile, HEADERSIZE + index, SEEK_SET);
+        fread(outbuffer + outbuffer_offset, 1, len, g_memdumpFile);
+        // compress option
+        s32 count = LZ_Compress(outbuffer + outbuffer_offset, outbuffer, len);
+        //
+        printf("count = %d\n", count);
+        WRITE_CHECKED(ctx, count);
+        WRITE_BUFFER_CHECKED(ctx, outbuffer, count);
+        READ_CHECKED(ctx,cont); if (!cont) {WRITE_CHECKED(ctx, 0);fclose(g_memdumpFile); return USER_ABORT;}
+        index += len;
+        size -= len;
+    }
+    WRITE_CHECKED(ctx, 0);
+    fclose(g_memdumpFile);
+    return 0;
+}
+//0x1C
+static Result _dmnt_pause(Gecko::Context& ctx){
+    return dmntchtPauseCheatProcess();
+}
+//0x1D
+static Result _dmnt_resume(Gecko::Context& ctx){
+    return dmntchtResumeCheatProcess();
+}
+
 Result cmd_decode(Gecko::Context& ctx, int cmd){
-    static Result (*cmds[263])(Gecko::Context &) = {NULL, _status, _poke8, _poke16, _poke32, _poke64, _readmem,
+    static Result (*cmds[287])(Gecko::Context &) = {NULL, _status, _poke8, _poke16, _poke32, _poke64, _readmem,
                                                     _writemem, _resume, _pause, _attach, _detatch, _querymem_single,
                                                     _querymem_multi, _current_pid, _attached_pid, _list_pids,
                                                     _get_titleid, _disconnect, _readmem_multi, _set_breakpoint, _freeze_address,
-                                                    _search_local, _fetch_result, _detach_dmnt, _dump_ptr, _attach_dmnt};
+                                                    _search_local, _fetch_result, _detach_dmnt, _dump_ptr, _attach_dmnt,
+                                                    _getbookmark, _dmnt_pause, _dmnt_resume};
     Result rc = 0;
     if(cmds[cmd]){
         rc = cmds[cmd](ctx);

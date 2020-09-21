@@ -43,7 +43,8 @@ int LZ_Compress(const unsigned char *in, unsigned char *out, unsigned int insize
         *(unsigned long long *)(&out[outpos]) = *(unsigned long long *)(&in[inpos]);
         outpos += marker.front;
         inpos += 8;
-    } while (inpos < MAXRANGE*8);
+    } while (inpos < MAXRANGE*8 && inpos < insize);
+    if (inpos < insize)
     do {
         marker.front = 8;
         for (int front = 0; front <= 8; front++) {
