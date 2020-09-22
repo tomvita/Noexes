@@ -485,7 +485,7 @@ static Result process(Gecko::Context &ctx, u64 m_start, u64 m_end) {
                             //
                             WRITE_CHECKED(ctx, count);
                             WRITE_BUFFER_CHECKED(ctx, outbuffer, count);
-                            READ_CHECKED(ctx,cont); if (!cont) {WRITE_CHECKED(ctx, 0); return USER_ABORT;}
+                            READ_CHECKED(ctx,cont); if (!cont) {WRITE_CHECKED(ctx, 0);READ_CHECKED(ctx, cont); return USER_ABORT;}
                             out_index = 0;
                         }
                     }
@@ -508,9 +508,11 @@ static Result process(Gecko::Context &ctx, u64 m_start, u64 m_end) {
         //
         WRITE_CHECKED(ctx, count);
         WRITE_BUFFER_CHECKED(ctx, outbuffer, count);
+        READ_CHECKED(ctx, cont);
         out_index = 0;
     }
     WRITE_CHECKED(ctx, 0);
+    READ_CHECKED(ctx, cont);
     return rc;
 }
 
@@ -611,11 +613,7 @@ static Result processlocal(Gecko::Context &ctx, u64 m_start, u64 m_end, u64 m_va
                             //
                             WRITE_CHECKED(ctx, count);
                             WRITE_BUFFER_CHECKED(ctx, outbuffer, count);
-                            READ_CHECKED(ctx, cont);
-                            if (!cont) {
-                                WRITE_CHECKED(ctx, 0);
-                                return USER_ABORT;
-                            }
+                            READ_CHECKED(ctx,cont); if (!cont) {WRITE_CHECKED(ctx, 0);READ_CHECKED(ctx, cont); return USER_ABORT;}
                             out_index = 0;
                         }
                     }
@@ -638,9 +636,11 @@ static Result processlocal(Gecko::Context &ctx, u64 m_start, u64 m_end, u64 m_va
         //
         WRITE_CHECKED(ctx, count);
         WRITE_BUFFER_CHECKED(ctx, outbuffer, count);
+        READ_CHECKED(ctx, cont);
         out_index = 0;
     }
     WRITE_CHECKED(ctx, 0);
+    READ_CHECKED(ctx, cont);
     return rc;
 }
 
@@ -717,11 +717,12 @@ static Result _getbookmark(Gecko::Context& ctx){
         printf("count = %d\n", count);
         WRITE_CHECKED(ctx, count);
         WRITE_BUFFER_CHECKED(ctx, outbuffer, count);
-        READ_CHECKED(ctx,cont); if (!cont) {WRITE_CHECKED(ctx, 0);fclose(g_memdumpFile); return USER_ABORT;}
+        READ_CHECKED(ctx,cont); if (!cont) {WRITE_CHECKED(ctx, 0);READ_CHECKED(ctx, cont);fclose(g_memdumpFile); return USER_ABORT;}
         index += len;
         size -= len;
     }
     WRITE_CHECKED(ctx, 0);
+    READ_CHECKED(ctx, cont);
     fclose(g_memdumpFile);
     return 0;
 }
