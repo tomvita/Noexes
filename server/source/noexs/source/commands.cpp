@@ -384,41 +384,28 @@ static Result _freeze_address(Gecko::Context& ctx){
     return rc;
 }
 
-//0x16
-static Result _search_local(Gecko::Context& ctx){
-    u32 id;
-    u64 addr;
-    u64 flags;
-    READ_CHECKED(ctx, id);
-    READ_CHECKED(ctx, addr);
-    READ_CHECKED(ctx, flags);
-    return ctx.dbg.setBreakpoint(id, flags, addr);
-}
 
-//0x17
-static Result _fetch_result(Gecko::Context& ctx){
-    u32 id;
-    u64 addr;
-    u64 flags;
-    READ_CHECKED(ctx, id);
-    READ_CHECKED(ctx, addr);
-    READ_CHECKED(ctx, flags);
-    return ctx.dbg.setBreakpoint(id, flags, addr);
-}
-
-//0x18
-static Result _detach_dmnt(Gecko::Context& ctx){
-    return dmntchtForceCloseCheatProcess();
-}
-
-//0x1A
-static Result _attach_dmnt(Gecko::Context& ctx){
-    return dmntchtForceOpenCheatProcess();
-}
 
 static u64 m_heap_start, m_heap_end, m_main_start, m_main_end;
 static u8 outbuffer[GECKO_BUFFER_SIZE * 9 / 8];
+static FILE* g_memdumpFile = NULL;
+// static FILE* g_bookmarkFile = NULL;
+#define HEADERSIZE 134
+enum t_searchsize {
+    _8, _16, _32, _64 
+};
+enum t_searchtype {
+    EQ, RANGE
+    // GT,NE, 
+    // LT,
+    // SAME,
+    // DIFF,
+    // INC,
+    // DEC
+};
 #define outbuffer_offset GECKO_BUFFER_SIZE / 8
+#define NEQvalue(t,k) (t)m_value1 != *reinterpret_cast<t *>(&ctx.buffer[i+k]) 
+#define NRGvalue(t,k) (t)m_value1 > *reinterpret_cast<t *>(&ctx.buffer[i+k]) && (t)m_value2 < *reinterpret_cast<t *>(&ctx.buffer[i+k])
 
 static Result getmeminfo(Gecko::Context& ctx) {
     Result rc = 0;
@@ -527,6 +514,168 @@ static Result process(Gecko::Context &ctx, u64 m_start, u64 m_end) {
     return rc;
 }
 
+static Result processlocal(Gecko::Context &ctx, u64 m_start, u64 m_end, u64 m_value1, u64 m_value2, t_searchsize searchsize, t_searchtype searchtype) {
+    Result rc = 0;
+    u32 size, len;
+    u64 addr, from, to;
+    MemoryInfo info = {};
+    u32 out_index = 0;
+    addr = m_start;
+    u8 cont = 1;
+    printf("processing local m_start = %lx m_end =  %lx m_value1 = %lx m_value2 = %lx searchsize = %x searchtype = %x\n", m_start, m_end, m_value1, m_value2, (u8)searchsize, (u8)searchtype);
+    while (addr < m_end) {
+        if (dmnt)
+            rc = dmntchtQueryCheatProcessMemory(&info, addr);
+        else
+            rc = ctx.dbg.query(&info, addr);
+        size = info.size;
+        if (info.perm == Perm_Rw) {
+            // printf("addr = %lx size = %x \n", addr, size);
+            while (size > 0) {
+                len = (size < GECKO_BUFFER_SIZE) ? size : GECKO_BUFFER_SIZE;
+                // printf("size = %x len = %x\n", size, len);
+                if (dmnt)
+                    rc = dmntchtReadCheatProcessMemory(addr, ctx.buffer, len);
+                else
+                    rc = ctx.dbg.readMem(ctx.buffer, addr, len);
+                // WRITE_CHECKED(ctx, rc);
+                if (R_FAILED(rc)) {
+                    printf("break1 rc= %x \n", (int)rc);
+                    break;
+                }
+                // screening
+                for (u32 i = 0; i < len; i += 8) {
+                    switch (searchsize) {
+                    case _8:
+                        switch (searchtype) {
+                        case EQ:
+                            if (NEQvalue(u8, 0) && NEQvalue(u8, 1) && NEQvalue(u8, 2) && NEQvalue(u8, 3) && NEQvalue(u8, 4) && NEQvalue(u8, 5) && NEQvalue(u8, 6) && NEQvalue(u8, 7))
+                                continue;
+                            break;
+                        case RANGE:
+                            if (NRGvalue(u8, 0) && NRGvalue(u8, 1) && NRGvalue(u8, 2) && NRGvalue(u8, 3) && NRGvalue(u8, 4) && NRGvalue(u8, 5) && NRGvalue(u8, 6) && NRGvalue(u8, 7))
+                                continue;
+                            break;
+                        }
+                        break;
+                    case _16:
+                        switch (searchtype) {
+                        case EQ:
+                            if (NEQvalue(u16, 0) && NEQvalue(u16, 2) && NEQvalue(u16, 4) && NEQvalue(u16, 6))
+                                continue;
+                            break;
+                        case RANGE:
+                            if (NRGvalue(u16, 0) && NRGvalue(u16, 2) && NRGvalue(u16, 4) && NRGvalue(u16, 6))
+                                continue;
+                            break;
+                        }
+                        break;
+                    case _32:
+                        switch (searchtype) {
+                        case EQ:
+                            if (NEQvalue(u32, 0) && NEQvalue(u32, 4))
+                                continue;
+                            break;
+                        case RANGE:
+                            if (NRGvalue(u32, 0) && NRGvalue(u32, 4))
+                                continue;
+                            break;
+                        }
+                        break;
+                    case _64:
+                        switch (searchtype) {
+                        case EQ:
+                            if (NEQvalue(u64, 0))
+                                continue;
+                            break;
+                        case RANGE:
+                            if (NRGvalue(u64, 0))
+                                continue;
+                            break;
+                        }
+                        break;
+                    }
+                    to = *reinterpret_cast<u64 *>(&ctx.buffer[i]);
+                    // if (screen(to))
+                    {
+                        from = addr + i;
+                        // Fill buffer
+                        *reinterpret_cast<u64 *>(&outbuffer[outbuffer_offset + out_index]) = from;
+                        *reinterpret_cast<u64 *>(&outbuffer[outbuffer_offset + out_index + 8]) = to;
+                        out_index += 16;
+                        if (out_index == GECKO_BUFFER_SIZE) {
+                            // printf("ready to write\n");
+                            s32 count = out_index;
+                            // compress option
+                            count = LZ_Compress(outbuffer + outbuffer_offset, outbuffer, out_index);
+                            //
+                            WRITE_CHECKED(ctx, count);
+                            WRITE_BUFFER_CHECKED(ctx, outbuffer, count);
+                            READ_CHECKED(ctx, cont);
+                            if (!cont) {
+                                WRITE_CHECKED(ctx, 0);
+                                return USER_ABORT;
+                            }
+                            out_index = 0;
+                        }
+                    }
+                }
+                if (R_FAILED(rc)) {
+                    printf("break2 rc= %x \n", (int)rc);
+                    break;
+                }
+                addr += len;
+                size -= len;
+            }
+        } else
+            addr += info.size;
+        // printf("addr = %lx \n", addr);
+    }
+    if (out_index != 0) {
+        s32 count = out_index;
+        // compress option
+        count = LZ_Compress(outbuffer + outbuffer_offset, outbuffer, out_index);
+        //
+        WRITE_CHECKED(ctx, count);
+        WRITE_BUFFER_CHECKED(ctx, outbuffer, count);
+        out_index = 0;
+    }
+    WRITE_CHECKED(ctx, 0);
+    return rc;
+}
+
+//0x16
+static Result _search_local(Gecko::Context& ctx){
+    u64 m_start; u64 m_end; u64 m_value1; u64 m_value2; t_searchsize searchsize; t_searchtype searchtype;
+    READ_CHECKED(ctx, m_start);
+    READ_CHECKED(ctx, m_end);
+    READ_CHECKED(ctx, m_value1);
+    READ_CHECKED(ctx, m_value2);
+    READ_CHECKED(ctx, searchsize);
+    READ_CHECKED(ctx, searchtype);
+    return processlocal(ctx, m_start, m_end, m_value1, m_value2, searchsize, searchtype);
+}
+
+//0x17
+static Result _fetch_result(Gecko::Context& ctx){
+    u32 id;
+    u64 addr;
+    u64 flags;
+    READ_CHECKED(ctx, id);
+    READ_CHECKED(ctx, addr);
+    READ_CHECKED(ctx, flags);
+    return ctx.dbg.setBreakpoint(id, flags, addr);
+}
+
+//0x18
+static Result _detach_dmnt(Gecko::Context& ctx){
+    return dmntchtForceCloseCheatProcess();
+}
+
+//0x1A
+static Result _attach_dmnt(Gecko::Context& ctx){
+    return dmntchtForceOpenCheatProcess();
+}
 //0x19
 static Result _dump_ptr(Gecko::Context& ctx){
     Result rc = getmeminfo(ctx);
@@ -540,9 +689,7 @@ static Result _dump_ptr(Gecko::Context& ctx){
     if (R_SUCCEEDED(rc)) rc = process(ctx, m_heap_start, m_heap_end);
     return rc;
 }
-static FILE* g_memdumpFile = NULL;
-// static FILE* g_bookmarkFile = NULL;
-#define HEADERSIZE 134
+
 //0x1B
 static Result _getbookmark(Gecko::Context& ctx){
     // printf("_getbookmark\n");
