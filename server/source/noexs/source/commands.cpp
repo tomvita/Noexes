@@ -414,7 +414,7 @@ static Result getmeminfo(Gecko::Context& ctx) {
     u32 count = 0;
     MemoryInfo info = {};
     addr = 0;
-    requestCount = 10000;
+    requestCount = 0xEFFFFFFF;
     m_heap_start = 0;
     m_main_start = 0;
     u32 mod = 0;
@@ -433,11 +433,12 @@ static Result getmeminfo(Gecko::Context& ctx) {
         if (info.type == MemType_CodeMutable){
             if (mod ==2 ) m_main_end = info.addr + info.size;
         }
-        if(info.type == 0x10 || R_FAILED(rc)){
+        if (info.addr + info.size == 0x8000000000 || R_FAILED(rc)) {
             break;
         }
         addr += info.size;
     }
+    printf("Count = %d\n", count);
     return rc;
 }
 
