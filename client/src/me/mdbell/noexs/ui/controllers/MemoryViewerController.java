@@ -304,7 +304,7 @@ public class MemoryViewerController implements IController {
             return;
         }
         //TODO not do this here.
-        mainController.tools().updateMemoryInfo(conn.query(0, 10000));
+        mainController.tools().updateMemoryInfo(conn.query(0, 100000));
     }
 
     PatternTokenizer tokenizer = new PatternTokenizer();
