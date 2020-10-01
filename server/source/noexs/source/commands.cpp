@@ -472,7 +472,8 @@ static Result process(Gecko::Context &ctx, u64 m_start, u64 m_end) {
                 // screening
                 for (u32 i = 0; i < len-4; i += 4) {
                     to = *reinterpret_cast<u64 *>(&ctx.buffer[i]);
-                    if (to >= m_heap_start && to <= m_heap_end) {
+                    if (to != 0)
+                    if ((to >= m_heap_start && to <= m_heap_end) || (to >= m_main_start && to <= m_main_end)) {
                         from = addr + i;
                         // Fill buffer
                         *reinterpret_cast<u64 *>(&outbuffer[outbuffer_offset + out_index]) = from;
