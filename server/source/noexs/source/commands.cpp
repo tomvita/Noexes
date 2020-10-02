@@ -414,7 +414,7 @@ static Result getmeminfo(Gecko::Context& ctx) {
     u32 count = 0;
     MemoryInfo info = {};
     addr = 0;
-    requestCount = 0xEFFFFFFF;
+    requestCount = 15000;
     m_heap_start = 0;
     m_main_start = 0;
     u32 mod = 0;
@@ -434,6 +434,9 @@ static Result getmeminfo(Gecko::Context& ctx) {
             if (mod ==2 ) m_main_end = info.addr + info.size;
         }
         if (info.addr + info.size == 0x8000000000 || R_FAILED(rc)) {
+            break;
+        }
+        if (info.type == 0x10 || R_FAILED(rc)) {
             break;
         }
         addr += info.size;
@@ -501,7 +504,7 @@ static Result process(Gecko::Context &ctx, u64 m_start, u64 m_end) {
             }
         } else
             addr += info.size;
-        // printf("addr = %lx \n", addr);
+        printf("addr = %lx \n", addr);
     }
     if (out_index != 0) {
         s32 count = out_index;
@@ -680,6 +683,7 @@ static Result _attach_dmnt(Gecko::Context& ctx){
 }
 //0x19
 static Result _dump_ptr(Gecko::Context& ctx){
+    printf("start getmeminfo\n")
     Result rc = getmeminfo(ctx);
     printf("main start = %lx, main end = %lx, heap start = %lx, heap end = %lx \n",m_main_start,m_main_end,m_heap_start,m_heap_end );
     WRITE_BUFFER_CHECKED(ctx, &m_main_start, 8);
