@@ -387,6 +387,7 @@ static Result _freeze_address(Gecko::Context& ctx){
 
 
 static u64 m_heap_start, m_heap_end, m_main_start, m_main_end;
+static bool m_32bitmode = false;
 static u8 outbuffer[GECKO_BUFFER_SIZE * 9 / 8];
 static FILE* g_memdumpFile = NULL;
 // static FILE* g_bookmarkFile = NULL;
@@ -440,7 +441,9 @@ static Result getmeminfo(Gecko::Context& ctx) {
             break;
         }
         addr += info.size;
-    }
+    };
+    if ((m_main_end | m_heap_end) & 0xFFFFFFFF00000000)
+        m_32bitmode = false; else m_32bitmode = true;
     printf("Count = %d\n", count);
     return rc;
 }
@@ -448,7 +451,7 @@ static Result getmeminfo(Gecko::Context& ctx) {
 static Result process(Gecko::Context &ctx, u64 m_start, u64 m_end) {
     Result rc = 0;
     u32 size, len;
-    u64 addr,from,to;
+    u64 addr,from,to=0;
     MemoryInfo info = {}; 
     u32 out_index =0;
     addr = m_start;
@@ -473,8 +476,13 @@ static Result process(Gecko::Context &ctx, u64 m_start, u64 m_end) {
                     break;
                 }
                 // screening
+                if (m_32bitmode)
+                    len = len + 4;
                 for (u32 i = 0; i < len-4; i += 4) {
-                    to = *reinterpret_cast<u64 *>(&ctx.buffer[i]);
+                    if (m_32bitmode)
+                        to = *reinterpret_cast<u32 *>(&ctx.buffer[i]);
+                    else
+                        to = *reinterpret_cast<u64 *>(&ctx.buffer[i]);
                     if (to != 0)
                     if ((to >= m_heap_start && to <= m_heap_end) || (to >= m_main_start && to <= m_main_end)) {
                         from = addr + i;
