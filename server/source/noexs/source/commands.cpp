@@ -699,14 +699,14 @@ static Result _dump_ptr(Gecko::Context& ctx){
 //0x1B
 static Result _getbookmark(Gecko::Context& ctx){
     // printf("_getbookmark\n");
+    u8 cont = 1;
     if (access("/switch/EdiZon/memdumpbookmark.dat", F_OK) != 0) {
-        s32 count = 0;
-        WRITE_CHECKED(ctx, count);
+        WRITE_CHECKED(ctx, 0)
+        READ_CHECKED(ctx, cont);
         return FILE_ACCESS_ERROR;
     }
     g_memdumpFile = fopen("/switch/EdiZon/memdumpbookmark.dat", "r+b");
     u32 size, len, index;
-    u8 cont = 1;
 
     fseek(g_memdumpFile, 0, SEEK_END);
     size = (ftell(g_memdumpFile) - HEADERSIZE);
