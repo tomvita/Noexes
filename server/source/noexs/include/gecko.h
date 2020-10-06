@@ -12,7 +12,7 @@
 
 #define VER_MAJOR (1)
 #define VER_MINOR (1)
-#define VER_PATCH (147)
+#define VER_PATCH (148)
 
 #define GECKO_BUFFER_SIZE (2048 * 32)
 #define GECKO_BUFFER_SIZE2 (2048 * 4)

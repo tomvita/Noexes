@@ -741,8 +741,27 @@ static Result _getbookmark(Gecko::Context& ctx){
     return 0;
 }
 //0x1C
-static Result _dmnt_pause(Gecko::Context& ctx){
-    return dmntchtPauseCheatProcess();
+static Result _putbookmark(Gecko::Context& ctx){
+    // printf("_putbookmark\n");
+    g_memdumpFile = fopen("/switch/EdiZon/DirectTransfer.bmk", "w+b");
+    if (g_memdumpFile == nullptr)
+        return FILE_ACCESS_ERROR;
+    WRITE_CHECKED(ctx, 0);
+    u32 size, len, index;
+    index = 0;
+    // do {
+    READ_CHECKED(ctx, size);
+    while (size > 0) {
+        len = (size < GECKO_BUFFER_SIZE) ? size : GECKO_BUFFER_SIZE;
+        READ_BUFFER_CHECKED(ctx, outbuffer, len);
+        fseek(g_memdumpFile, index, SEEK_SET);
+        fwrite(outbuffer, 1, len, g_memdumpFile);
+        index += len;
+        size -= len;
+    }
+    // } while (size > 0);
+    fclose(g_memdumpFile);
+    return 0;
 }
 //0x1D
 static Result _dmnt_resume(Gecko::Context& ctx){
@@ -755,7 +774,7 @@ Result cmd_decode(Gecko::Context& ctx, int cmd){
                                                     _querymem_multi, _current_pid, _attached_pid, _list_pids,
                                                     _get_titleid, _disconnect, _readmem_multi, _set_breakpoint, _freeze_address,
                                                     _search_local, _fetch_result, _detach_dmnt, _dump_ptr, _attach_dmnt,
-                                                    _getbookmark, _dmnt_pause, _dmnt_resume};
+                                                    _getbookmark, _putbookmark, _dmnt_resume};
     Result rc = 0;
     if(cmds[cmd]){
         rc = cmds[cmd](ctx);
