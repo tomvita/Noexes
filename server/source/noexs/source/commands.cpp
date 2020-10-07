@@ -443,8 +443,13 @@ static Result getmeminfo(Gecko::Context& ctx) {
         addr += info.size;
     };
     if ((m_main_end | m_heap_end) & 0xFFFFFFFF00000000)
-        m_32bitmode = false; else m_32bitmode = true;
+        m_32bitmode = false;
+    else
+        m_32bitmode = true;
     printf("Count = %d\n", count);
+    if (m_32bitmode)
+        printf("32bitmode\n");
+        printf("(m_main_end | m_heap_end) & 0xFFFFFFFF00000000 = %lx\n ",(m_main_end | m_heap_end) & 0xFFFFFFFF00000000);
     return rc;
 }
 
@@ -476,9 +481,7 @@ static Result process(Gecko::Context &ctx, u64 m_start, u64 m_end) {
                     break;
                 }
                 // screening
-                if (m_32bitmode)
-                    len = len + 4;
-                for (u32 i = 0; i < len-4; i += 4) {
+                for (u32 i = 0; i < ((m_32bitmode)? len: len-4); i += 4) {
                     if (m_32bitmode)
                         to = *reinterpret_cast<u32 *>(&ctx.buffer[i]);
                     else
