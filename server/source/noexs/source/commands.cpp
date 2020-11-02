@@ -391,7 +391,7 @@ static bool m_32bitmode = false;
 static u8 outbuffer[GECKO_BUFFER_SIZE * 9 / 8];
 static FILE* g_memdumpFile = NULL;
 // static FILE* g_bookmarkFile = NULL;
-#define HEADERSIZE 134
+#define HEADERSIZE 135
 enum t_searchsize {
     _8, _16, _32, _64 
 };
