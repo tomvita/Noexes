@@ -57,6 +57,72 @@ Result writeCompressed(Gecko::Context& ctx, u32 len) {
     }
     return 0;
 }
+static u64 m_heap_start, m_heap_end, m_main_start, m_main_end;
+static bool m_32bitmode = false;
+static u8 outbuffer[GECKO_BUFFER_SIZE * 9 / 8];
+static FILE* g_memdumpFile = NULL;
+// static FILE* g_bookmarkFile = NULL;
+#define HEADERSIZE 135
+enum t_searchsize {
+    _8, _16, _32, _64 
+};
+enum t_searchtype {
+    EQ, RANGE
+    // GT,NE, 
+    // LT,
+    // SAME,
+    // DIFF,
+    // INC,
+    // DEC
+};
+#define outbuffer_offset GECKO_BUFFER_SIZE / 8
+#define NEQvalue(t,k) (t)m_value1 != *reinterpret_cast<t *>(&ctx.buffer[i+k]) 
+#define NRGvalue(t,k) (t)m_value1 > *reinterpret_cast<t *>(&ctx.buffer[i+k]) && (t)m_value2 < *reinterpret_cast<t *>(&ctx.buffer[i+k])
+
+static Result getmeminfo(Gecko::Context& ctx) {
+    Result rc = 0;
+    u64 addr;
+    u32 requestCount;
+    u32 count = 0;
+    MemoryInfo info = {};
+    addr = 0;
+    requestCount = 15000;
+    m_heap_start = 0;
+    m_main_start = 0;
+    u32 mod = 0;
+    for(count = 0; count < requestCount; count++){
+        if (dmnt) rc = dmntchtQueryCheatProcessMemory(&info, addr);
+        else rc =ctx.dbg.query(&info, addr);
+        // printf("info.addr %lx ,info.size %lx ,info.type %x\n",info.addr,info.size,info.type );
+        if (info.type == MemType_Heap){
+            if (m_heap_start == 0) m_heap_start = info.addr;
+            m_heap_end = info.addr + info.size;
+        }
+        if (info.type == MemType_CodeStatic && info.perm == Perm_Rx){
+            if (mod == 1) m_main_start = info.addr;
+            mod += 1;
+        }
+        if (info.type == MemType_CodeMutable){
+            if (mod ==2 ) m_main_end = info.addr + info.size;
+        }
+        if (info.addr + info.size == 0x8000000000 || R_FAILED(rc)) {
+            break;
+        }
+        if (info.type == 0x10 || R_FAILED(rc)) {
+            break;
+        }
+        addr += info.size;
+    };
+    if ((m_main_end | m_heap_end) & 0xFFFFFFFF00000000)
+        m_32bitmode = false;
+    else
+        m_32bitmode = true;
+    printf("Count = %d\n", count);
+    if (m_32bitmode)
+        printf("32bitmode\n");
+        printf("(m_main_end | m_heap_end) & 0xFFFFFFFF00000000 = %lx\n ",(m_main_end | m_heap_end) & 0xFFFFFFFF00000000);
+    return rc;
+}
 
 //0x01
 static Result _status(Gecko::Context& ctx){
@@ -213,6 +279,9 @@ static Result _attach(Gecko::Context& ctx){
                 // dmntchtExit();
             }
         }
+    }
+    if (R_SUCCEEDED(rc)) {
+        rc = getmeminfo(ctx);
     }
     return rc;
 }
@@ -386,72 +455,6 @@ static Result _freeze_address(Gecko::Context& ctx){
 
 
 
-static u64 m_heap_start, m_heap_end, m_main_start, m_main_end;
-static bool m_32bitmode = false;
-static u8 outbuffer[GECKO_BUFFER_SIZE * 9 / 8];
-static FILE* g_memdumpFile = NULL;
-// static FILE* g_bookmarkFile = NULL;
-#define HEADERSIZE 135
-enum t_searchsize {
-    _8, _16, _32, _64 
-};
-enum t_searchtype {
-    EQ, RANGE
-    // GT,NE, 
-    // LT,
-    // SAME,
-    // DIFF,
-    // INC,
-    // DEC
-};
-#define outbuffer_offset GECKO_BUFFER_SIZE / 8
-#define NEQvalue(t,k) (t)m_value1 != *reinterpret_cast<t *>(&ctx.buffer[i+k]) 
-#define NRGvalue(t,k) (t)m_value1 > *reinterpret_cast<t *>(&ctx.buffer[i+k]) && (t)m_value2 < *reinterpret_cast<t *>(&ctx.buffer[i+k])
-
-static Result getmeminfo(Gecko::Context& ctx) {
-    Result rc = 0;
-    u64 addr;
-    u32 requestCount;
-    u32 count = 0;
-    MemoryInfo info = {};
-    addr = 0;
-    requestCount = 15000;
-    m_heap_start = 0;
-    m_main_start = 0;
-    u32 mod = 0;
-    for(count = 0; count < requestCount; count++){
-        if (dmnt) rc = dmntchtQueryCheatProcessMemory(&info, addr);
-        else rc =ctx.dbg.query(&info, addr);
-        // printf("info.addr %lx ,info.size %lx ,info.type %x\n",info.addr,info.size,info.type );
-        if (info.type == MemType_Heap){
-            if (m_heap_start == 0) m_heap_start = info.addr;
-            m_heap_end = info.addr + info.size;
-        }
-        if (info.type == MemType_CodeStatic && info.perm == Perm_Rx){
-            if (mod == 1) m_main_start = info.addr;
-            mod += 1;
-        }
-        if (info.type == MemType_CodeMutable){
-            if (mod ==2 ) m_main_end = info.addr + info.size;
-        }
-        if (info.addr + info.size == 0x8000000000 || R_FAILED(rc)) {
-            break;
-        }
-        if (info.type == 0x10 || R_FAILED(rc)) {
-            break;
-        }
-        addr += info.size;
-    };
-    if ((m_main_end | m_heap_end) & 0xFFFFFFFF00000000)
-        m_32bitmode = false;
-    else
-        m_32bitmode = true;
-    printf("Count = %d\n", count);
-    if (m_32bitmode)
-        printf("32bitmode\n");
-        printf("(m_main_end | m_heap_end) & 0xFFFFFFFF00000000 = %lx\n ",(m_main_end | m_heap_end) & 0xFFFFFFFF00000000);
-    return rc;
-}
 
 static Result process(Gecko::Context &ctx, u64 m_start, u64 m_end) {
     Result rc = 0;
@@ -770,6 +773,47 @@ static Result _putbookmark(Gecko::Context& ctx){
 static Result _dmnt_resume(Gecko::Context& ctx){
     return dmntchtResumeCheatProcess();
 }
+//0x1E
+static Result _resolvepointers(Gecko::Context &ctx) {
+    printf("resolve pointers\n");
+    Result rc=0;
+    u32 size, offset;
+    s16 depth,j;
+    u64 address=0, value;
+    READ_CHECKED(ctx, size);
+    printf("size %d\n",size);
+    for (u32 idx = 0; idx < size; idx++) {
+        READ_CHECKED(ctx, depth);
+        printf("depth %d\n",depth);
+        if (depth > 0) { //main case
+            value = m_main_start; // need to initialise this value with attach
+        } else { //heap case
+            value = m_heap_start;
+            depth = -depth;
+        }
+        for (j = 0; j < depth; j++) {
+            printf("value %lx\n",value);
+            READ_CHECKED(ctx, offset);
+            printf("offset %x\n",offset);
+            address = value + offset;
+            printf("address %lx\n",address);
+            if (dmnt)
+                rc = dmntchtReadCheatProcessMemory(address, ctx.buffer, 8);
+            else
+                rc = ctx.dbg.readMem(ctx.buffer, address, 8);
+            if(R_FAILED(rc)){
+                break;
+            }
+            value = *reinterpret_cast<u64 *>(&ctx.buffer[0]);
+        }
+        printf("value %lx\n",value);
+        WRITE_CHECKED(ctx, idx); //4
+        WRITE_CHECKED(ctx, j); //2
+        WRITE_CHECKED(ctx, address); //8
+        WRITE_CHECKED(ctx, value); //8
+    }
+    return rc;
+}
 
 Result cmd_decode(Gecko::Context& ctx, int cmd){
     static Result (*cmds[287])(Gecko::Context &) = {NULL, _status, _poke8, _poke16, _poke32, _poke64, _readmem,
@@ -777,7 +821,7 @@ Result cmd_decode(Gecko::Context& ctx, int cmd){
                                                     _querymem_multi, _current_pid, _attached_pid, _list_pids,
                                                     _get_titleid, _disconnect, _readmem_multi, _set_breakpoint, _freeze_address,
                                                     _search_local, _fetch_result, _detach_dmnt, _dump_ptr, _attach_dmnt,
-                                                    _getbookmark, _putbookmark, _dmnt_resume};
+                                                    _getbookmark, _putbookmark, _dmnt_resume, _resolvepointers};
     Result rc = 0;
     if(cmds[cmd]){
         rc = cmds[cmd](ctx);
