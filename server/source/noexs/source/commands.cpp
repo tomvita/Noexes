@@ -264,7 +264,7 @@ static Result _attach(Gecko::Context& ctx){
         ctx.status = Gecko::Status::Paused;
     } else {
         if (ctx.dbg.attached()) {    
-            // dmntchtInitialize();
+            dmntchtInitialize();
             DmntCheatProcessMetadata cht;
             dmntchtGetCheatProcessMetadata(&cht);
             if (cht.process_id == pid) {
@@ -276,7 +276,7 @@ static Result _attach(Gecko::Context& ctx){
                 }
             } 
             else {
-                // dmntchtExit();
+                dmntchtExit();
             }
         }
     }
@@ -693,6 +693,9 @@ static Result _detach_dmnt(Gecko::Context& ctx){
 
 //0x1A
 static Result _attach_dmnt(Gecko::Context& ctx){
+    if (dmnt == false) {
+        dmntchtInitialize();
+    }
     return dmntchtForceOpenCheatProcess();
 }
 //0x19

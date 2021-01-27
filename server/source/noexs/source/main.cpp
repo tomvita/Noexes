@@ -73,7 +73,7 @@ void __appInit(void) {
         fatalThrow(rc); // maybe set a variable like noSd or something? It doesn't HAVE to log.
     }
 
-    rc = dmntchtInitialize();
+    // rc = dmntchtInitialize();
     // if (R_FAILED(rc)) {
     //     fatalThrow(rc); // maybe set a variable like noSd or something? It doesn't HAVE to log.
     // }
@@ -139,7 +139,7 @@ static Result _eventCallback(Gecko::DebugEvent event){
 
 int main(int argc, char **argv)
 {
-    g_debugFile = fopen("/atmosphere/contents/054e4f4558454000/Log.txt", "w");//w or a
+    g_debugFile = fopen("/atmosphere/contents/0x0100000000000038/Log.txt", "w");//w or a
     g_Context.dbg.addEventCallback(_eventCallback);
 
     while(appletMainLoop() && !g_Context.exit){
