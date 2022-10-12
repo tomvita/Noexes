@@ -82,33 +82,14 @@ void __appInit(void) {
 	if (R_FAILED(rc)) {
 		fatalThrow(MAKERESULT(Module_TCPGecko, TCPGeckoError_initfail));
 	}
-	
-    rc = fsInitialize();
-    if (R_FAILED(rc)) {
-        fatalThrow(MAKERESULT(Module_Libnx, LibnxError_InitFail_FS));
-    }
-    
-    rc = fsdevMountSdmc();
-    if (R_FAILED(rc)) {
-        fatalThrow(rc); // maybe set a variable like noSd or something? It doesn't HAVE to log.
-    }
-
-    // rc = dmntchtInitialize();
-    // if (R_FAILED(rc)) {
-    //     fatalThrow(rc); // maybe set a variable like noSd or something? It doesn't HAVE to log.
-    // }
 }
 
 void __appExit(void) {
 	/* Cleanup services. */
-    fsdevUnmountAll();
-    fsExit();
     pminfoExit();
     socketExit();
     pmdmntExit();
     ldrDmntExit();
-    // nsdevExit();
-    dmntchtExit();
 	smExit();
 }
 
