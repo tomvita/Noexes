@@ -97,6 +97,7 @@ void __appInit(void) {
     // if (R_FAILED(rc)) {
     //     fatalThrow(rc); // maybe set a variable like noSd or something? It doesn't HAVE to log.
     // }
+    hosversionSet((u32)(6) << 16); // Set to 6.0.0 for compatibility.
 }
 
 void __appExit(void) {
